@@ -7,7 +7,7 @@ from tensorflow.keras.preprocessing import image
 app = Flask(__name__)
 
 # Load the model
-model = load_model(r'C:\Users\DELL\Downloads\gp_model (1)\gp_model\final-modelcnn.keras')
+model = load_model('final-modelcnn.keras')
 
 # Preprocess the image
 IMAGE_SIZE = 224
