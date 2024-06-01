@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
+import io
 
 app = Flask(__name__)
 
@@ -12,16 +13,12 @@ model = load_model('final-modelcnn.keras')
 # Preprocess the image
 IMAGE_SIZE = 224
 def preprocess_image(img):
-    img = image.load_img(img, target_size=(IMAGE_SIZE, IMAGE_SIZE))
+    img = img.resize((IMAGE_SIZE, IMAGE_SIZE))
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-def allowed_file(filename):
-    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
-classnames=['Apple___Apple_scab', 'Apple___Black_rot', 
+classnames = ['Apple___Apple_scab', 'Apple___Black_rot', 
             'Apple___Cedar_apple_rust', 'Apple___healthy', 'Blueberry___healthy', 
             'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy',
             'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot', 'Corn_(maize)___Common_rust_',
@@ -36,18 +33,12 @@ classnames=['Apple___Apple_scab', 'Apple___Black_rot',
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # Check if an image file was uploaded
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file found'})
+    try:
+        # Read the image bytes from the request
+        img_bytes = request.get_data()
 
-    file = request.files['file']
-
-    # Check if the file is a valid image
-    if file and allowed_file(file.filename):
-        img = 'temp.jpg'  # Save the image temporarily
-
-        # Save the image to a temporary location
-        file.save(img)
+        # Convert the byte data to an image
+        img = Image.open(io.BytesIO(img_bytes))
 
         # Preprocess the image
         img_array = preprocess_image(img)
@@ -58,12 +49,11 @@ def predict():
         # Get the predicted label
         predicted_label = np.argmax(predictions, axis=1)[0]
 
-        # Get class indices
-        class_indices = model.predict(np.zeros((1, IMAGE_SIZE, IMAGE_SIZE, 3))).argmax(axis=-1)
+        return jsonify({'predicted_label': int(predicted_label), 'class_name': classnames[predicted_label]})
 
-        return jsonify({'predicted_label': int(predicted_label), 'class_indices': classnames[predicted_label]})
-
-    return jsonify({'error': 'Invalid file'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0",port=5000)
+
